@@ -1,0 +1,172 @@
+# ============================================================
+# 退货退款规则库 · 15 条形式化规则
+# ============================================================
+#
+# 三类规则：
+#   A. 资格判定 (6 条, AND) — 任一失败 → 拒绝或升级
+#   B. 退款计算 (4 档) — 根据条件×金额
+#   C. 禁退黑名单 (5 类) — 命中任一 → 拒绝
+#
+# 所有阈值可通过 config.yaml 覆盖
+
+metadata:
+  version: "1.0"
+  domain: "ecommerce-return-refund"
+  language: "zh-CN"
+
+# ============================================================
+# A. 资格判定（6 条 AND 规则）
+# ============================================================
+eligibility_rules:
+
+  R_ELIG_01_WITHIN_RETURN_WINDOW:
+    description: "购买时间在退货窗口内（默认7天）"
+    field: "purchase_date_days_ago"
+    operator: "<="
+    default_value: 7
+    fail_action: "escalate"       # 超7天但<14天→升级，≥14天→拒绝
+    fail_message: "您的订单已超过7天无理由退货期"
+
+  R_ELIG_02_NOT_IN_BLACKLIST:
+    description: "商品类别不在禁退黑名单中"
+    field: "product_category"
+    operator: "not_in"
+    fail_action: "reject"
+    fail_message: "根据平台规定，{category}类商品不支持7天无理由退货"
+
+  R_ELIG_03_RESALABLE_CONDITION:
+    description: "商品未拆封或拆封后不影响二次销售"
+    field: "package_status"
+    operator: "in"
+    valid_values: ["unopened", "opened_intact"]
+    fail_action: "depreciation"   # 已拆封但完整→折旧，损坏→拒绝
+    fail_message: "商品已拆封使用，需扣除{depreciation_rate}折旧费"
+
+  R_ELIG_04_NO_REPEAT_RETURN:
+    description: "30天内无同一商品退货记录"
+    field: "has_repeat_return_30d"
+    operator: "=="
+    default_value: false
+    fail_action: "reject"
+    fail_message: "该商品在30天内已申请过退货"
+
+  R_ELIG_05_NO_DUPLICATE_ORDER_RETURN:
+    description: "同一订单未退过（幂等保护）"
+    field: "order_already_returned"
+    operator: "=="
+    default_value: false
+    fail_action: "reject"
+    fail_message: "该订单已完成退货，无法重复申请"
+
+  R_ELIG_06_AMOUNT_WITHIN_LIMIT:
+    description: "订单金额在在线处理上限内（默认5000元）"
+    field: "order_amount"
+    operator: "<="
+    default_value: 5000
+    fail_action: "escalate"
+    fail_message: "订单金额{amount}元超过在线处理上限，已为您转接高级客服"
+
+# ============================================================
+# B. 退款计算（4 档分流矩阵）
+# ============================================================
+refund_calculation:
+  # 档 1：未拆封 + 窗口内 → 全额退款
+  full_refund_unopened:
+    condition:
+      package_status: "unopened"
+      within_window: true
+    refund: "order_amount"
+    shipping: "平台承担"
+    notes: "全额退款，免运费"
+
+  # 档 2：拆封但完整 + 窗口内 → 退90%
+  partial_refund_opened:
+    condition:
+      package_status: "opened_intact"
+      within_window: true
+    refund: "order_amount * 0.90"
+    shipping: "用户承担"
+    notes: "已拆封扣除10%折旧费，用户承担退货运费"
+
+  # 档 3：质量问题 + 72h内 → 全额+免运费
+  quality_issue_refund:
+    condition:
+      reason: "quality_defect"
+      order_hours: "<= 72"
+    refund: "order_amount"
+    shipping: "平台承担+补偿运费{shipping_fee}元"
+    notes: "质量问题全额退款，额外补偿退货运费"
+
+  # 档 4：尺码不对 → 换货或退款-运费
+  wrong_size:
+    condition:
+      reason: "wrong_size"
+    options:
+      - action: "exchange"
+        refund: 0
+        notes: "免费换货，免运费"
+      - action: "refund_minus_shipping"
+        refund: "order_amount - {shipping_fee}"
+        notes: "退款但扣除{shipping_fee}元运费"
+
+  # 档 5：不想要了 + 窗口内 → 全额退款（用户付运费）
+  no_longer_wanted:
+    condition:
+      reason: "no_longer_wanted"
+      within_window: true
+    refund: "order_amount"
+    shipping: "用户承担"
+    notes: "全额退款，退货运费由用户承担"
+
+# ============================================================
+# C. 禁退黑名单（5 类商品 OR 规则）
+# ============================================================
+blacklist_categories:
+  - category: "内衣/泳衣"
+    id: "BL_01_UNDERWEAR"
+    reason: "贴身衣物涉及卫生问题，不支持退货"
+
+  - category: "食品/生鲜"
+    id: "BL_02_FOOD"
+    reason: "食品生鲜保质期短，不支持7天无理由退货"
+
+  - category: "定制/DIY"
+    id: "BL_03_CUSTOMIZED"
+    reason: "定制商品不可二次销售，不支持退货"
+
+  - category: "虚拟商品/充值卡"
+    id: "BL_04_VIRTUAL"
+    reason: "虚拟商品一经使用不可退还"
+
+  - category: "已激活电子产品"
+    id: "BL_05_ACTIVATED_ELECTRONICS"
+    reason: "已激活的电子产品（手机/平板/电脑）不支持退货"
+
+# ============================================================
+# D. 意图分类（5 类退货原因）
+# ============================================================
+intent_categories:
+  INTENT_01_WRONG_SIZE:
+    name: "尺码不对"
+    keywords: ["尺码", "大小", "太紧", "太松", "不合适", "穿不上", "太大", "太小"]
+    default_action: "wrong_size"
+
+  INTENT_02_QUALITY_DEFECT:
+    name: "质量问题"
+    keywords: ["质量", "坏了", "破", "裂", "瑕疵", "划痕", "变形", "掉色", "开线", "碎了"]
+    default_action: "quality_issue_refund"
+
+  INTENT_03_WRONG_ITEM:
+    name: "发错货"
+    keywords: ["发错", "不是这个", "颜色不对", "型号不对", "款式不对", "寄错"]
+    default_action: "quality_issue_refund"
+
+  INTENT_04_NO_LONGER_WANTED:
+    name: "不想要了"
+    keywords: ["不想要", "不需要", "买错", "后悔", "不喜歡", "退了吧"]
+    default_action: "no_longer_wanted"
+
+  INTENT_05_DAMAGED_IN_TRANSIT:
+    name: "运输损坏"
+    keywords: ["快递", "运输", "压坏", "摔坏", "包装破损", "盒子烂了"]
+    default_action: "quality_issue_refund"

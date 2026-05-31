@@ -1,0 +1,6 @@
+fastapi>=0.104
+uvicorn[standard]>=0.24
+gunicorn>=21.2
+pyyaml>=6.0
+python-jose[cryptography]>=3.3
+mcp>=1.0

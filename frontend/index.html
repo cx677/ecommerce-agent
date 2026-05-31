@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>电商全场景智能体 · 坐席助手 v2.0</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;background:#f0f2f5;color:#333;min-height:100vh}
+.header{background:linear-gradient(135deg,#d4380d 0%,#cf1322 100%);color:#fff;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.header h1{font-size:18px;font-weight:600}
+.header-info{font-size:13px;opacity:.9;display:flex;gap:20px}
+.main{padding:20px;max-width:1200px;margin:0 auto;display:grid;grid-template-columns:320px 1fr;gap:20px;height:calc(100vh - 100px)}
+.panel{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);overflow:hidden}
+.panel-header{padding:12px 16px;border-bottom:1px solid #f0f0f0;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+.panel-body{padding:16px;overflow-y:auto}
+.order-list{max-height:400px;overflow-y:auto}
+.order-item{padding:10px 12px;border:1px solid #e8e8e8;border-radius:6px;margin-bottom:8px;cursor:pointer;transition:all .2s}
+.order-item:hover{border-color:#d4380d;background:#fff7e6}
+.order-item.selected{border-color:#d4380d;background:#fff2e8;box-shadow:0 0 0 2px rgba(212,56,13,.2)}
+.order-item .name{font-weight:600;font-size:14px}
+.order-item .meta{font-size:12px;color:#999;margin-top:4px;display:flex;gap:12px}
+.order-item .price{color:#d4380d;font-weight:600}
+.input-group{margin-bottom:12px}
+.input-group label{display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:500}
+.input-group select,.input-group textarea{width:100%;padding:8px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px;font-family:inherit}
+.input-group textarea{resize:vertical;min-height:60px}
+.btn{display:inline-block;padding:8px 20px;border:none;border-radius:4px;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s}
+.btn-primary{background:#d4380d;color:#fff}
+.btn-primary:hover{background:#cf1322}
+.btn-primary:disabled{background:#d9d9d9;cursor:not-allowed}
+.btn-sm{padding:4px 12px;font-size:12px}
+.btn-block{display:block;width:100%}
+.flow-bar{display:flex;align-items:center;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.flow-step{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:500;background:#f5f5f5;color:#bbb}
+.flow-step.done{background:#e8f5e9;color:#2e7d32}
+.flow-step.active{background:#fff2e8;color:#d4380d;animation:pulse 1.5s infinite}
+.flow-arrow{color:#d9d9d9;font-size:10px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.script-card{padding:12px 16px;background:#fffbe6;border:1px solid #ffe58f;border-radius:6px;margin-bottom:12px;font-size:14px;line-height:1.6}
+.script-card .label{font-size:11px;color:#ad6800;font-weight:600;margin-bottom:4px;text-transform:uppercase}
+.script-card .text{color:#333}
+.result-card{padding:14px 16px;border-radius:6px;margin-bottom:12px;font-size:14px}
+.result-card.approved{background:#f6ffed;border:1px solid #b7eb8f}
+.result-card.rejected{background:#fff2f0;border:1px solid #ffccc7}
+.result-card.escalated{background:#fffbe6;border:1px solid #ffe58f}
+.result-card .title{font-weight:600;margin-bottom:6px}
+.result-card .detail{font-size:13px;color:#555}
+.action-bar{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.btn-green{background:#52c41a;color:#fff;border:none;padding:10px 24px;border-radius:4px;font-size:14px;cursor:pointer}
+.btn-green:hover{background:#389e0d}
+.btn-red{background:#ff4d4f;color:#fff;border:none;padding:10px 24px;border-radius:4px;font-size:14px;cursor:pointer}
+.btn-red:hover{background:#cf1322}
+.btn-orange{background:#fa8c16;color:#fff;border:none;padding:10px 24px;border-radius:4px;font-size:14px;cursor:pointer;font-weight:600}
+.btn-orange:hover{background:#d46b08;box-shadow:0 2px 8px rgba(250,140,22,.4)}
+
+/* ── 标签页 ── */
+.tab-bar{display:flex;border-bottom:2px solid #f0f0f0}
+.tab-btn{padding:8px 20px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;color:#999;position:relative;transition:all .2s}
+.tab-btn.active{color:#d4380d}
+.tab-btn.active::after{content:"";position:absolute;bottom:-2px;left:0;right:0;height:2px;background:#d4380d}
+.tab-btn .badge{display:inline-block;background:#ff4d4f;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;vertical-align:top}
+
+/* ── 冲突裁决 ── */
+.conflict-card{border:1px solid #e8e8e8;border-radius:6px;padding:14px;margin-bottom:12px;transition:all .2s}
+.conflict-card:hover{border-color:#fa8c16;box-shadow:0 2px 6px rgba(250,140,22,.1)}
+.conflict-card .c-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.conflict-card .c-title{font-weight:600;font-size:14px}
+.conflict-card .c-order{font-size:12px;color:#999}
+.conflict-card .c-text{font-size:13px;padding:8px 10px;background:#fffbe6;border-radius:4px;margin-bottom:8px;line-height:1.5}
+.conflict-card .c-rules{font-size:12px;margin-bottom:8px}
+.conflict-card .c-rules .fail{color:#ff4d4f}
+.conflict-card .c-actions{display:flex;gap:8px;flex-wrap:wrap}
+.c-actions button{padding:6px 16px;font-size:12px;border-radius:4px;cursor:pointer;border:none;font-weight:500}
+.btn-uphold{background:#52c41a;color:#fff}.btn-uphold:hover{background:#389e0d}
+.btn-override{background:#fa8c16;color:#fff}.btn-override:hover{background:#d46b08}
+.btn-escalate-conflict{background:#ff4d4f;color:#fff}.btn-escalate-conflict:hover{background:#cf1322}
+.emotion-badge{font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;white-space:nowrap}
+.emotion-badge.strong{background:#fff2f0;color:#ff4d4f;border:1px solid #ffccc7}
+.emotion-badge.extreme{background:#ff4d4f;color:#fff}
+.emotion-badge.moderate{background:#fffbe6;color:#d48806;border:1px solid #ffe58f}
+.stats-bar{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.stat-item{background:#fafafa;padding:8px 14px;border-radius:6px;font-size:12px}
+.stat-item b{color:#d4380d;font-size:16px}
+.adjudication-result{font-size:12px;color:#52c41a;margin-top:6px}
+.tab-content{display:none;flex-direction:column;height:100%}
+.tab-content.active{display:flex}
+.empty-state{color:#999;text-align:center;padding:40px 0;font-size:14px}
+
+/* ── 登录页 ── */
+.login-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#d4380d 0%,#cf1322 100%);display:flex;align-items:center;justify-content:center;z-index:1000}
+.login-box{background:#fff;padding:40px;border-radius:12px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center}
+.login-box h2{font-size:22px;margin-bottom:8px;color:#333}
+.login-box .sub{font-size:13px;color:#999;margin-bottom:24px}
+.login-box input{width:100%;padding:10px 14px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;margin-bottom:12px;outline:none}
+.login-box input:focus{border-color:#d4380d;box-shadow:0 0 0 2px rgba(212,56,13,.2)}
+.login-box .login-btn{width:100%;padding:10px;background:#d4380d;color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px}
+.login-box .login-btn:hover{background:#cf1322}
+.login-box .err{color:#ff4d4f;font-size:12px;margin-top:8px;min-height:18px}
+</style>
+</head>
+<body>
+
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <h2>🛒 电商智能体</h2>
+    <div class="sub">坐席登录</div>
+    <input type="text" id="loginUser" placeholder="用户名" value="CSR001" onkeydown="if(event.key==='Enter')doLogin()">
+    <input type="password" id="loginPass" placeholder="密码" value="csr001" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">登 录</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<div class="header">
+  <h1>🛒 电商全场景智能体 v2.0</h1>
+  <div class="header-info">
+    <span id="userDisplay">坐席: CSR001</span>
+    <span id="scene-badge" style="background:#e8f5e9;color:#2e7d32;padding:2px 10px;border-radius:10px;font-size:12px">待机</span>
+    <span id="session-indicator" style="opacity:.5">未连接</span>
+    <a href="#" onclick="doLogout()" style="color:#fff;opacity:.7;font-size:12px;text-decoration:none">退出</a>
+  </div>
+</div>
+
+<div class="main">
+  <!-- ── 左侧：订单库 ── -->
+  <div class="panel" style="display:flex;flex-direction:column">
+    <div class="panel-header">📦 Mock 订单库（20条）</div>
+    <div class="panel-body order-list" id="orderList"></div>
+    <div style="padding:16px;border-top:1px solid #f0f0f0">
+      <div class="input-group">
+        <label>包裹状态（退货场景）</label>
+        <select id="pkgStatus">
+          <option value="unopened">未拆封</option>
+          <option value="opened_intact">已拆封但完整</option>
+          <option value="damaged">运输损坏</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>用户描述（4场景自动路由）</label>
+        <textarea id="userText" placeholder="退货: 尺码不对 | 售前: 推荐耳机 | 追踪: 快递到哪 | 投诉: 态度太差">尺码不对太大了想退货</textarea>
+      </div>
+      <button class="btn btn-primary btn-block" id="btnStart" onclick="startSession()">▶ 开始处理</button>
+    </div>
+  </div>
+
+  <!-- ── 右侧：标签页（会话工作区 / 冲突裁决） ── -->
+  <div class="panel" style="display:flex;flex-direction:column">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('workspace')">🔧 会话工作区</button>
+      <button class="tab-btn" onclick="switchTab('conflicts')">⚖️ 冲突裁决<span class="badge" id="conflictBadge" style="display:none">0</span></button>
+    </div>
+
+    <!-- Tab 1: 会话工作区 -->
+    <div class="tab-content active" id="tab-workspace" style="flex:1;flex-direction:column">
+      <div class="panel-body" style="flex:1;overflow-y:auto" id="workspace">
+        <div class="empty-state">👈 输入用户描述，系统自动路由到对应场景</div>
+      </div>
+      <div id="actionBar" style="padding:16px;border-top:1px solid #f0f0f0;display:none"></div>
+    </div>
+
+    <!-- Tab 2: 冲突裁决 -->
+    <div class="tab-content" id="tab-conflicts" style="flex:1;flex-direction:column">
+      <div class="panel-body" style="flex:1;overflow-y:auto" id="conflictsWorkspace">
+        <div id="conflictStats" class="stats-bar"></div>
+        <div id="conflictList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let sessionId = null;
+let authToken = '';
+
+// ── 登录 ──────────────────────────────
+async function doLogin() {
+  const u = document.getElementById('loginUser').value;
+  const p = document.getElementById('loginPass').value;
+  try {
+    const r = await fetch('/api/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const d = await r.json();
+    if (d.error) { document.getElementById('loginErr').textContent = d.error; return; }
+    authToken = d.token;
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('userDisplay').textContent = `坐席: ${d.display_name}(${d.role})`;
+    loadOrders();
+  } catch(e) { document.getElementById('loginErr').textContent = '服务器连接失败'; }
+}
+function doLogout() {
+  authToken = ''; sessionId = null;
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('workspace').innerHTML = '<div class=\"empty-state\">👈 输入用户描述，系统自动路由到对应场景</div>';
+  document.getElementById('actionBar').style.display = 'none';
+  document.getElementById('scene-badge').textContent = '待机';
+  document.getElementById('session-indicator').textContent = '未连接';
+}
+
+async function callAPI(cmd, args) {
+  const headers = {'Content-Type':'application/json'};
+  if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+  try {
+    const r = await fetch(cmd==='start'?'/api/start':'/api/event', {method:'POST',headers,body:JSON.stringify(args)});
+    return await r.json();
+  } catch(e) { return {session_id:'demo',scene:'return_refund',current_node:'query_order',talk_script:{script:'💡 API离线'}}; }
+}
+const ORDER_DATA = [
+  {id:"ORD001",name:"纯棉T恤-白色M码",cat:"服装",price:89,days:3,pkg:"unopened"},
+  {id:"ORD002",name:"华为Mate70 Pro",cat:"手机",price:3999,days:0,pkg:"unopened"},
+  {id:"ORD003",name:"运动跑鞋-黑色42码",cat:"鞋靴",price:329,days:10,pkg:"unopened"},
+  {id:"ORD004",name:"莫代尔内衣套装-L码",cat:"内衣/泳衣",price:128,days:5,pkg:"unopened"},
+  {id:"ORD005",name:"蓝牙降噪耳机",cat:"数码配件",price:499,days:4,pkg:"opened_intact"},
+  {id:"ORD006",name:"洗碗机清洁剂6瓶装",cat:"日用品",price:59.9,days:7,pkg:"unopened"},
+  {id:"ORD007",name:"索尼A7M4全画幅相机",cat:"数码影像",price:5999,days:2,pkg:"unopened"},
+  {id:"ORD008",name:"牛仔裤-蓝色30码",cat:"服装",price:259,days:3,pkg:"unopened"},
+  {id:"ORD009",name:"进口车厘子3J级2斤装",cat:"食品/生鲜",price:168,days:1,pkg:"unopened"},
+  {id:"ORD010",name:"定制情侣手链刻字版",cat:"定制/DIY",price:199,days:6,pkg:"unopened"},
+  {id:"ORD011",name:"王者荣耀6480点券",cat:"虚拟商品/充值卡",price:648,days:0,pkg:"unopened"},
+  {id:"ORD012",name:"iPhone16 Pro Max",cat:"手机",price:8999,days:7,pkg:"opened_intact"},
+  {id:"ORD013",name:"创意马克杯礼盒装",cat:"家居用品",price:39.9,days:1,pkg:"unopened"},
+  {id:"ORD014",name:"液晶显示器支架",cat:"数码配件",price:189,days:1,pkg:"damaged"},
+  {id:"ORD015",name:"智能手环运动版",cat:"数码配件",price:299,days:4,pkg:"opened_intact"},
+  {id:"ORD016",name:"女士风衣-驼色M码",cat:"服装",price:599,days:2,pkg:"opened_intact"},
+  {id:"ORD017",name:"机械键盘青轴87键",cat:"数码配件",price:369,days:1,pkg:"unopened"},
+  {id:"ORD018",name:"瑜伽垫加厚防滑",cat:"运动户外",price:89,days:10,pkg:"unopened"},
+  {id:"ORD019",name:"麻辣小龙虾3斤装",cat:"食品/生鲜",price:138,days:1,pkg:"unopened"},
+  {id:"ORD020",name:"戴森V15无线吸尘器",cat:"家用电器",price:4999,days:2,pkg:"unopened"},
+];
+
+function selectOrder(id) {
+  document.querySelectorAll('.order-item').forEach(el => el.classList.remove('selected'));
+  document.querySelector(`[data-id="${id}"]`)?.classList.add('selected');
+}
+
+async function startSession() {
+  const orderId = document.querySelector('.order-item.selected')?.dataset.id || '';
+  const userText = document.getElementById('userText').value;
+  if (!userText.trim()) { alert('请输入用户描述'); return; }
+  const resp = await callAPI('start', {text: userText, order: orderId, package_status: document.getElementById('pkgStatus').value});
+  if (resp.error) { alert(resp.error); return; }
+  sessionId = resp.session_id;
+  document.getElementById('session-indicator').textContent = sessionId;
+  document.getElementById('session-indicator').style.opacity = '1';
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('actionBar').style.display = 'block';
+  const names = {return_refund:'🔄 退货退款',presale:'🛒 售前咨询',order_track:'📦 订单追踪',complaint:'⚠️ 投诉升级'};
+  document.getElementById('scene-badge').textContent = names[resp.scene] || resp.scene;
+  renderWorkspace(resp);
+}
+
+async function doEvent(ev, payload) {
+  if (!sessionId) return;
+  const resp = await callAPI('event', {session: sessionId, event: ev, payload});
+  renderWorkspace(resp);
+  // 如果走到了 end 节点，自动刷新冲突列表
+  if (resp.current_node === 'end' || resp.current_step === 'end') {
+    setTimeout(() => loadConflicts(), 500);
+  }
+}
+</script>
+<script>
+// ── 订单列表 ──────────────────────────────
+async function loadOrders() {
+  try { const resp = await fetch('/api/orders'); renderOrderList(await resp.json()); return; } catch(e) {}
+  renderOrderList(ORDER_DATA.map(o=>({order_id:o.id,product_name:o.name,product_category:o.cat,price:o.price,purchase_date_days_ago:o.days})));
+}
+
+function renderOrderList(orders) {
+  document.getElementById('orderList').innerHTML = orders.map(o => `
+    <div class="order-item" data-id="${o.order_id}" onclick="selectOrder('${o.order_id}')">
+      <div class="name">${o.product_name}</div>
+      <div class="meta"><span>${o.order_id}</span><span class="price">¥${o.price}</span><span>${o.purchase_date_days_ago}天前</span><span>${o.product_category}</span></div>
+    </div>`).join('');
+}
+
+// ── 4 场景自适应渲染 ──────────────────────────
+const STEPS = {
+  return_refund: ['query_order','classify_intent','check_eligibility','calculate_refund','execute_return','end'],
+  presale: ['collect_needs','match_products','recommend','end'],
+  order_track: ['query_order','check_logistics','feedback','end'],
+  complaint: ['verify','determine','compensate','end'],
+};
+const LABELS = {query_order:'查订单',classify_intent:'识意图',check_eligibility:'核资格',calculate_refund:'算退款',execute_return:'执行',end:'结束',collect_needs:'需求',match_products:'匹配',recommend:'推荐',check_logistics:'物流',feedback:'反馈',verify:'核实',determine:'定责',compensate:'补偿'};
+
+function renderWorkspace(data) {
+  const node = data.current_node || data.current_step || '';
+  const scene = data.scene || 'return_refund';
+  const talk = data.talk_script || {};
+  document.getElementById('nodeIndicator')?.setAttribute?.('data-node', node);
+
+  let steps = STEPS[scene] || STEPS.return_refund;
+  let flow = '<div class="flow-bar">';
+  for (let s of steps) {
+    let cls = (data.history||[]).includes(s) ? 'done' : (s===node?'active':'');
+    flow += `<span class="flow-step ${cls}">${LABELS[s]||s}</span>`;
+    if (s!=='end') flow += '<span class="flow-arrow">→</span>';
+  }
+  flow += '</div>';
+  let html = flow;
+
+  if (talk.script) html += `<div class="script-card"><div class="label">💬 话术</div><div class="text">${talk.script}</div></div>`;
+  if (data.intent?.intent_name) html += `<div style="margin-bottom:12px;font-size:13px">📌 意图：<b>${data.intent.intent_name}</b></div>`;
+
+  if (data.matches?.length) {
+    html += '<div style="margin-bottom:12px"><b>📦 匹配商品：</b></div>';
+    data.matches.forEach(m => html += `<div class="result-card approved" style="margin-bottom:6px"><b>${m.name}</b> ¥${m.price} ⭐${m.rating||'-'} | ${m.category||''}</div>`);
+  }
+
+  if (data.eligibility?.checks) {
+    let cls = data.eligibility.eligible?'approved':'rejected';
+    let title = data.eligibility.eligible?'✅ 资格通过':'❌ 资格未通过';
+    let details = data.eligibility.checks.map(c=>`${c.passed?'✅':'❌'} ${c.rule_id}: ${c.reason||'通过'}`).join('<br>');
+    html += `<div class="result-card ${cls}"><div class="title">${title}</div><div class="detail">${details}</div></div>`;
+  }
+
+  if (data.refund?.action) html += `<div class="result-card approved"><div class="title">💰 ${data.refund.action}</div><div class="detail">¥${data.refund.refund_amount} | ${data.refund.shipping||'-'}<br>${data.refund.notes}</div></div>`;
+  if (data.resolution) html += `<div class="result-card approved"><div class="title">📋 结果</div><div class="detail">${data.resolution}</div></div>`;
+
+  document.getElementById('workspace').innerHTML = html;
+  renderActions(data);
+}
+
+function renderActions(data) {
+  const node = data.current_node || data.current_step || '';
+  let btns = '';
+  const cont = ['query_order','collect_needs','verify','check_eligibility','match_products','check_logistics','determine','calculate_refund','feedback','compensate'];
+  const exec = ['execute_return'];
+  const endN = ['end','recommend'];
+
+  if (node === 'classify_intent') {
+    btns += `<button class="btn btn-primary" onclick="doEvent('USER_ACCEPTED')">✅ 确认意图</button>`;
+    if (data.intent && data.intent.candidates) {
+      data.intent.candidates.forEach(c => {
+        btns += `<button class="btn btn-sm" style="background:#f0f0f0" onclick="doEvent('INTENT_SELECTED',{selected_intent:'${c.id}'})">选「${c.name}」</button>`;
+      });
+    }
+  } else if (cont.includes(node)) btns += `<button class="btn btn-primary" onclick="doEvent('CONTINUE')">▶ 继续</button>`;
+  if (exec.includes(node)) btns += '<button class="btn btn-orange" onclick="doEvent(\'CONFIRM_ACTION\',{idempotency_key:crypto.randomUUID()})">⚠️ 确认办理</button>';
+  if (endN.includes(node)) btns += '<button class="btn btn-green" onclick="resetSession()">🔄 下一单</button>';
+  if (node!=='end') btns += '<button class="btn btn-red btn-sm" onclick="doEvent(\'TERMINATE\')">终止</button>';
+  document.getElementById('actionBar').innerHTML = btns;
+}
+
+function resetSession() {
+  sessionId = null;
+  document.getElementById('session-indicator').textContent = '未连接';
+  document.getElementById('session-indicator').style.opacity = '0.5';
+  document.getElementById('scene-badge').textContent = '待机';
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('workspace').innerHTML = '<div class="empty-state">👈 输入用户描述，系统自动路由到对应场景</div>';
+  document.getElementById('actionBar').style.display = 'none';
+  document.querySelectorAll('.order-item').forEach(el => el.classList.remove('selected'));
+}
+
+// ── 标签页切换 ──────────────────────────────
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+  if (name === 'workspace') {
+    document.querySelector('.tab-btn:first-child').classList.add('active');
+    document.getElementById('tab-workspace').classList.add('active');
+  } else {
+    document.querySelector('.tab-btn:last-child').classList.add('active');
+    document.getElementById('tab-conflicts').classList.add('active');
+    loadConflicts();
+  }
+}
+
+// ── 冲突裁决 ──────────────────────────────
+
+async function loadConflicts(filter) {
+  try {
+    const status = filter || 'pending';
+    const resp = await fetch('/api/conflicts?status=' + status);
+    const data = await resp.json();
+    renderConflicts(data.conflicts || [], data.stats || {}, status);
+  } catch(e) {
+    document.getElementById('conflictList').innerHTML = '<div class="empty-state">🔌 后端未连接</div>';
+    document.getElementById('conflictStats').innerHTML = '';
+    document.getElementById('conflictBadge').style.display = 'none';
+  }
+}
+
+function renderConflicts(conflicts, stats, currentFilter) {
+  // 统计条
+  document.getElementById('conflictStats').innerHTML = `
+    <div class="stat-item">总计 <b>${stats.total||0}</b></div>
+    <div class="stat-item" style="color:#ff4d4f">待裁决 <b>${stats.pending||0}</b></div>
+    <div class="stat-item" style="color:#52c41a">已裁决 <b>${stats.resolved||0}</b></div>
+    ${Object.entries(stats.by_decision||{}).map(([k,v]) =>
+      `<button class="btn btn-sm stat-filter" onclick="loadConflicts('${k}')">${({uphold:'🟢 维持',override:'🟠 放行',escalate:'🔴 升级'})[k]||k} <b>${v}</b></button>`
+    ).join('')}
+    <button class="btn btn-sm" style="margin-left:auto;background:#f0f0f0;color:#333" onclick="loadConflicts('${currentFilter==='all'?'pending':'all'}')">${currentFilter==='all'?'只看待办':'查看全部'}</button>
+  `;
+
+  // 更新 badge
+  const pending = stats.pending || 0;
+  const badge = document.getElementById('conflictBadge');
+  if (pending > 0) {
+    badge.textContent = pending;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+
+  // 按待裁决优先排列
+  const sorted = [...conflicts].sort((a,b) => {
+    if (!a.adjudication && b.adjudication) return -1;
+    if (a.adjudication && !b.adjudication) return 1;
+    return 0;
+  });
+
+  if (!sorted.length) {
+    document.getElementById('conflictList').innerHTML = '<div class="empty-state">✅ 暂无冲突记录<br><small style="color:#999">用情绪化文本触发一条试试：选 ORD004 → 输入"凭什么内衣不给退，我要投诉你们欺诈消费者"</small></div>';
+    return;
+  }
+
+  const levelLabels = {mild:'轻',moderate:'中',strong:'强',extreme:'极强'};
+  const decisionLabels = {uphold:'维持原判',override:'例外放行',escalate:'升级人工'};
+
+  document.getElementById('conflictList').innerHTML = sorted.map(c => {
+    const isResolved = !!c.adjudication;
+    const level = c.emotion_level || 'unknown';
+    const lvlCls = level === 'extreme' ? 'extreme' : (level === 'strong' ? 'strong' : 'moderate');
+
+    let rulesHtml = '';
+    if (c.rule_results?.failed_reasons?.length) {
+      rulesHtml = c.rule_results.failed_reasons.map(r =>
+        `<div class="fail">❌ ${r}</div>`
+      ).join('');
+    }
+
+    let actionsHtml = '';
+    if (!isResolved) {
+      actionsHtml = `
+        <div class="c-actions">
+          <button class="btn-uphold" onclick="adjudicate('${c.conflict_id}','uphold')">✅ 维持原判</button>
+          <button class="btn-override" onclick="adjudicate('${c.conflict_id}','override')">⚠️ 例外放行</button>
+          <button class="btn-escalate-conflict" onclick="adjudicate('${c.conflict_id}','escalate')">⬆ 升级人工</button>
+        </div>`;
+    } else {
+      actionsHtml = `<div class="adjudication-result">📌 已裁决：${decisionLabels[c.adjudication]||c.adjudication} · ${c.adjudicated_by||''} · ${(c.adjudicated_at||'').slice(0,16)}</div>`;
+    }
+
+    return `
+      <div class="conflict-card" style="${isResolved ? 'opacity:.6' : ''}">
+        <div class="c-header">
+          <div>
+            <span class="c-title">${c.product_name}</span>
+            <span class="c-order">${c.order_id} · ¥${c.price} · ${c.product_category}</span>
+          </div>
+          <span class="emotion-badge ${lvlCls}">🔥 ${levelLabels[level]||level}情绪</span>
+        </div>
+        <div class="c-text">💬 「${c.user_text}」</div>
+        <div class="c-rules">${rulesHtml}</div>
+        ${actionsHtml}
+      </div>`;
+  }).join('');
+}
+
+async function adjudicate(conflictId, decision) {
+  try {
+    const resp = await fetch('/api/conflicts/adjudicate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({conflict_id: conflictId, decision: decision, operator_id: 'CSR001'})
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      // 即时刷新
+      loadConflicts();
+    }
+  } catch(e) {
+    alert('裁决失败: ' + e.message);
+  }
+}
+
+</script>
+</body>
+</html>

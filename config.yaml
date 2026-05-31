@@ -1,0 +1,36 @@
+# ============================================================
+# 电商退货退款智能体 · 项目配置
+# ============================================================
+
+# LLM 配置（火山引擎 doubao）
+llm:
+  provider: "volcengine"
+  model: "doubao-seed-2-0-pro-260215"
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+  api_key_env: "ARK_API_KEY"
+  temperature: 0.3        # 话术生成用低温度保稳定性
+  max_tokens: 1024
+
+# 规则阈值（可覆盖 rules/return_rules.yaml 的默认值）
+thresholds:
+  return_window_days: 7       # 7天无理由退货窗口
+  grace_period_days: 7        # 窗口外宽限期（升级人工）
+  max_refund_amount: 5000     # 在线处理金额上限（元）
+  depreciation_rate: 0.10     # 拆封折旧率 10%
+  shipping_fee: 12            # 标准运费（元）
+  repeat_return_days: 30      # 重复退货检测窗口
+
+# 数据库
+database:
+  path: "data/ecommerce.db"
+
+# 路径
+paths:
+  mock_orders: "data/orders.jsonl"
+  rules_yaml: "rules/return_rules.yaml"
+  state_dir: "data/.state"
+
+# 前端
+frontend:
+  title: "电商退货退款 · 坐席助手 v1.0"
+  operator_id: "CSR001"
